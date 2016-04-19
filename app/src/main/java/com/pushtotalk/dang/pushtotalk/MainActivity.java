@@ -248,12 +248,21 @@ public class MainActivity extends Activity {
     @Override
     public boolean onKeyDown(int keycode, KeyEvent event) {
         if (event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK) {
-            event.startTracking();
+            Log.i(LOG_TAG, " detect headset button long press onKeyDown");
+            if (isRecording == false) {
+                Log.i(LOG_TAG, " detect headset button long press start recording");
+                isRecording = true;
+                handler.sendEmptyMessage(MSG_START_RECORD);
+            } else {
+                Log.i(LOG_TAG, " detect headset button long press stop recording");
+                handler.sendEmptyMessage(MSG_STOP_RECORD);
+            }
             return true;
         }
         return super.onKeyDown(keycode, event);
     }
 
+    /*
     @Override
     public boolean onKeyLongPress(int keyCode, KeyEvent event) {
         Log.i(LOG_TAG, " detect button long press");
@@ -276,7 +285,7 @@ public class MainActivity extends Activity {
 
         }
         return super.onKeyLongPress(keyCode, event);
-    }
+    }*/
 
     /*
     @Override
