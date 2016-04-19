@@ -31,6 +31,9 @@ import android.media.audiofx.NoiseSuppressor;
 
 
 public class MainActivity extends Activity {
+    private static final String LOG_TAG = HeadsetButtonReceiver.class.getSimpleName();
+    private static final int LONG_PRESS_DELAY = 500;
+
     private Button btnPlay;
     private Button btnRecorder;
     private Button btnStop;
@@ -229,15 +232,15 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean onKeyDown(int keycode, KeyEvent event) {
-
+        int action = event.getAction();
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_HEADSETHOOK:
-	         /*   if (action == KeyEvent.ACTION_UP)
+	            if (action == KeyEvent.ACTION_UP)
 	            {
 	                if (SystemClock.uptimeMillis() - event.getDownTime() > LONG_PRESS_DELAY) {
-	                    Log.i("AD"," long press");
+	                    Log.i(LOG_TAG," long press");
 	                }
-	            }*/
+	            }
                 break;
 
         }
@@ -248,6 +251,7 @@ public class MainActivity extends Activity {
     public boolean onKeyUp(int keycode, KeyEvent event) {
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_HEADSETHOOK:
+                Log.i(LOG_TAG," KEYCODE_HEADSETHOOK");
                 break;
         }
         return true;
