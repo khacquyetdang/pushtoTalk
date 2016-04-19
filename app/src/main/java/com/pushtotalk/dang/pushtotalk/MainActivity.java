@@ -19,6 +19,8 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -44,7 +46,7 @@ public class MainActivity extends Activity {
     private static int BUFFER_SIZE = AudioRecord.getMinBufferSize(RECORDING_RATE, CHANNEL, FORMAT);
 
     private Thread recordingThread = null;
-    private boolean isRecording = false;
+    private volatile boolean isRecording = false;
     private AudioRecord audioRecord;
     public static AudioManager audiomanager;
     BufferedOutputStream os = null;
@@ -53,6 +55,9 @@ public class MainActivity extends Activity {
     AutomaticGainControl agc;
     AudioOutputManager myAudioReceiver;
     HeadsetButtonReceiver HeadsetButton;
+
+    private final static int MSG_START_RECORD = 0x000001;
+    private final static int MSG_STOP_RECORD = 0x000002;
 
 
     @Override
@@ -79,100 +84,7 @@ public class MainActivity extends Activity {
         btnRecorder.setOnClickListener(new View.OnClickListener() {
 
             public void onClick(View v) {
-                isRecording = true;
-                /*****/
-
-                recordingThread = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
-
-                        audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                                RECORDING_RATE, CHANNEL, FORMAT, BUFFER_SIZE * 10);
-
-
-                 		/*audioRecord= new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-            					RECORDING_RATE, CHANNEL, FORMAT, BUFFER_SIZE*10); */
-                 		/**/
-                 		/*echoCanceler(audioRecord);*/
-                        if (AcousticEchoCanceler.isAvailable()) {
-                            AcousticEchoCanceler aec = AcousticEchoCanceler.create(audioRecord.getAudioSessionId());
-                            if (aec != null && !aec.getEnabled()) {
-                                aec.setEnabled(true);
-                            }
-                        }
-                        if (NoiseSuppressor.isAvailable()) {
-                            NoiseSuppressor noise = NoiseSuppressor.create(audioRecord.getAudioSessionId());
-
-                            if (noise != null && !noise.getEnabled()) {
-                                noise.setEnabled(true);
-                            }
-                        }
-                 		/**/
-                        if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
-                            audioRecord.startRecording();
-                            Log.e("Audioengine", "start record");
-                        }
-
-
-                 		 /*agc = AutomaticGainControl.create(audioRecord.getAudioSessionId());
-                 		if (AutomaticGainControl.isAvailable()){
-                 			agc.setEnabled(true);
-                 		}
-                 		else {
-                 			Log.i("AD","not AutomaticGainControl");
-                 		}*/
-
-
-                        /***/
-                        /*****/
-                        FileOutputStream os = null;
-                        try {
-                            os = new FileOutputStream(filePath);
-                        } catch (FileNotFoundException e) {
-                            e.printStackTrace();
-                        }
-                        float gain = 1.5f;
-
-                         /*ad*/
-
-
-                        audioData = new byte[BUFFER_SIZE];
-
-                        while (isRecording) {
-                            int reallySampledBytes = audioRecord.read(audioData, 0, audioData.length);
-
-
-                            /*****************************************/
-
-                            if (reallySampledBytes > 0) {
-                                for (int i = 0; i < reallySampledBytes; ++i)
-                                    audioData[i] = (byte) Math.min((int) (audioData[i] * gain), (int) Short.MAX_VALUE);
-                            }
-                            /*****************************************************************/
-
-                            try {
-                                os.write(audioData, 0, audioData.length);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                        /**************************************************/
-
-                        try {
-                            os.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-                        /*****/
-                    }
-
-                });
-                recordingThread.start();
-                /*****/
-                btnRecorder.setEnabled(false);
-                btnStop.setEnabled(true);
+                startRecord();
             }
         });
 
@@ -190,22 +102,123 @@ public class MainActivity extends Activity {
 
         btnStop.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
-                    isRecording = false;
-                    audioRecord.stop();
-                    audioRecord.release();
-                    recordingThread = null;
-                    audioRecord = null;
-                    Log.e("Audioengine", "stop record");
-                }
-
-                btnStop.setEnabled(false);
-                btnPlay.setEnabled(true);
+                stopRecord();
             }
         });
 
     }
 
+    private void stopRecord() {
+        if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
+            isRecording = false;
+            audioRecord.stop();
+            audioRecord.release();
+            recordingThread = null;
+            audioRecord = null;
+            Log.e("Audioengine", "stop record");
+        }
+
+        btnStop.setEnabled(false);
+        btnPlay.setEnabled(true);
+    }
+
+    private void startRecord() {
+        isRecording = true;
+        /*****/
+
+        recordingThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                unMuteMicrophone();
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
+
+                audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                        RECORDING_RATE, CHANNEL, FORMAT, BUFFER_SIZE * 10);
+
+
+                 		/*audioRecord= new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                                RECORDING_RATE, CHANNEL, FORMAT, BUFFER_SIZE*10); */
+                         /**/
+                         /*echoCanceler(audioRecord);*/
+                if (AcousticEchoCanceler.isAvailable()) {
+                    AcousticEchoCanceler aec = AcousticEchoCanceler.create(audioRecord.getAudioSessionId());
+                    if (aec != null && !aec.getEnabled()) {
+                        aec.setEnabled(true);
+                    }
+                }
+                if (NoiseSuppressor.isAvailable()) {
+                    NoiseSuppressor noise = NoiseSuppressor.create(audioRecord.getAudioSessionId());
+
+                    if (noise != null && !noise.getEnabled()) {
+                        noise.setEnabled(true);
+                    }
+                }
+                         /**/
+                if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
+                    audioRecord.startRecording();
+                    Log.e("Audioengine", "start record");
+                }
+
+
+                 		 /*agc = AutomaticGainControl.create(audioRecord.getAudioSessionId());
+                         if (AutomaticGainControl.isAvailable()){
+                 			agc.setEnabled(true);
+                 		}
+                 		else {
+                 			Log.i("AD","not AutomaticGainControl");
+                 		}*/
+
+
+                /***/
+                /*****/
+                FileOutputStream os = null;
+                try {
+                    os = new FileOutputStream(filePath);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                }
+                float gain = 1.5f;
+
+                         /*ad*/
+
+
+                audioData = new byte[BUFFER_SIZE];
+
+                while (isRecording) {
+                    int reallySampledBytes = audioRecord.read(audioData, 0, audioData.length);
+
+
+                    /*****************************************/
+
+                    if (reallySampledBytes > 0) {
+                        for (int i = 0; i < reallySampledBytes; ++i)
+                            audioData[i] = (byte) Math.min((int) (audioData[i] * gain), (int) Short.MAX_VALUE);
+                    }
+                    /*****************************************************************/
+
+                    try {
+                        os.write(audioData, 0, audioData.length);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                /**************************************************/
+
+                try {
+                    os.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                /*****/
+            }
+
+        });
+        recordingThread.start();
+        /*****/
+        btnRecorder.setEnabled(false);
+        btnStop.setEnabled(true);
+    }
 
     @Override
     public void onResume() {
@@ -226,36 +239,94 @@ public class MainActivity extends Activity {
 
     private void unMuteMicrophone() {
         if (audiomanager.isMicrophoneMute()) {
+            Log.i(LOG_TAG, "unMuteMicrophone");
             audiomanager.setMicrophoneMute(false);
         }
     }
 
+
     @Override
-    public boolean onKeyDown(int keycode, KeyEvent event)
-    {
-
-        switch (event.getKeyCode()) {
-            case KeyEvent.KEYCODE_HEADSETHOOK:
-                //detect headset button press down
-                Log.i(LOG_TAG, " detect headset button press down");
-                break;
-
+    public boolean onKeyDown(int keycode, KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK) {
+            event.startTracking();
+            return true;
         }
-        return super.onKeyUp(keycode, event);
+        return super.onKeyDown(keycode, event);
     }
 
     @Override
-    public boolean onKeyUp(int keycode, KeyEvent event)
-    {
-        switch (event.getKeyCode()) {
-            case KeyEvent.KEYCODE_HEADSETHOOK:
-                //detect headset button press up
-                Log.i(LOG_TAG, " detect headset button press up");
-                break;
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        Log.i(LOG_TAG, " detect button long press");
+        if (event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK) {
+            //detect headset button press down
+            Log.i(LOG_TAG, " detect headset button long press ACTION" + event.getAction());
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                Log.i(LOG_TAG, " detect headset button long press ACTION_DOWN");
+                if (isRecording == false) {
+                    isRecording = true;
+                    handler.sendEmptyMessage(MSG_START_RECORD);
+                }
+            }
+            if (event.getAction() == KeyEvent.ACTION_UP)
+            {
+                Log.i(LOG_TAG, " detect headset button long press ACTION_UP");
+                handler.sendEmptyMessage(MSG_STOP_RECORD);
+            }
+            return true;
+
+        }
+        return super.onKeyLongPress(keyCode, event);
+    }
+
+    /*
+    @Override
+    public boolean onKeyUp(int keycode, KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK) {
+            //detect headset button press up
+            if (event.isTracking()) {
+                Log.i(LOG_TAG, " detect headset button press up isTracking");
+                if (event.isLongPress()) {
+                    Log.i(LOG_TAG, " detect headset button press up isLongPress");
+                }
+                else
+                {
+                    Log.i(LOG_TAG, " detect headset button press up isShortPress");
+                    Log.i(LOG_TAG, " detect headset button isShortPress");
+                 }
+            }
+            else
+            {
+                handler.sendEmptyMessage(MSG_STOP_RECORD);
+            }
         }
         return super.onKeyUp(keycode, event);
-    }
-	/**/
+    }*/
+    /**/
+
+    /*
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        int action = event.getAction();
+        switch (event.getKeyCode()) {
+            case KeyEvent.KEYCODE_HEADSETHOOK:
+                if (event.isLongPress()) {
+                    Log.i(LOG_TAG, " detect headset button long press ");
+                } else {
+                    //detect headset button press up
+                    if (action == KeyEvent.ACTION_UP) {
+                        stopRecord();
+                        Log.i(LOG_TAG, " detect headset button press up");
+                    }
+                    if (action == KeyEvent.ACTION_DOWN) {
+                        if (isRecording == false)
+                            startRecord();
+                        Log.i(LOG_TAG, " detect headset button press down");
+                    }
+                }
+                break;
+        }
+        return super.dispatchKeyEvent(event);
+    }*/
 
     /******************************************************************************/
     public static void echoCanceler(AudioRecord audio_record) {
@@ -358,7 +429,7 @@ public class MainActivity extends Activity {
         int bufferSizeInBytes = (int) (file.length() / shortSizeInBytes);
 
 	    /*final AudioTrack at = new AudioTrack(AudioManager.STREAM_VOICE_CALL, RECORDING_RATE, AudioFormat.CHANNEL_OUT_MONO,
-				  AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);*/
+                  AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);*/
         final AudioTrack at = new AudioTrack(AudioManager.STREAM_VOICE_CALL, 8000, AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, BUFFER_SIZE, AudioTrack.MODE_STREAM);
 
@@ -424,7 +495,7 @@ public class MainActivity extends Activity {
                 peak_sample = buffer[i];
             }
         }
-		/*Npkobs++;*/ /*à définir si c'est une valeur à fixer*/
+        /*Npkobs++;*/ /*à définir si c'est une valeur à fixer*/
     }
 
 
@@ -542,7 +613,20 @@ public class MainActivity extends Activity {
         }
 
     }
+
     /****************/
 
 
+    protected Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message message) {
+            if (message.what == MSG_START_RECORD) {
+                startRecord();
+            }
+            if (message.what == MSG_STOP_RECORD) {
+                stopRecord();
+            }
+
+        }
+    };
 }
