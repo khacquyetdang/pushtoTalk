@@ -231,30 +231,29 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    public boolean onKeyDown(int keycode, KeyEvent event) {
-        int action = event.getAction();
+    public boolean onKeyDown(int keycode, KeyEvent event)
+    {
+
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_HEADSETHOOK:
-	            if (action == KeyEvent.ACTION_UP)
-	            {
-	                if (SystemClock.uptimeMillis() - event.getDownTime() > LONG_PRESS_DELAY) {
-	                    Log.i(LOG_TAG," long press");
-	                }
-	            }
+                //detect headset button press down
+                Log.i(LOG_TAG, " detect headset button press down");
                 break;
 
         }
-        return true;
+        return super.onKeyUp(keycode, event);
     }
 
     @Override
-    public boolean onKeyUp(int keycode, KeyEvent event) {
+    public boolean onKeyUp(int keycode, KeyEvent event)
+    {
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_HEADSETHOOK:
-                Log.i(LOG_TAG," KEYCODE_HEADSETHOOK");
+                //detect headset button press up
+                Log.i(LOG_TAG, " detect headset button press up");
                 break;
         }
-        return true;
+        return super.onKeyUp(keycode, event);
     }
 	/**/
 
