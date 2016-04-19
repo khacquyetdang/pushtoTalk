@@ -31,7 +31,7 @@ import android.media.audiofx.NoiseSuppressor;
 
 
 public class MainActivity extends Activity {
-    private static final String LOG_TAG = HeadsetButtonReceiver.class.getSimpleName();
+    private static final String LOG_TAG = MainActivity.class.getSimpleName();
     private static final int LONG_PRESS_DELAY = 500;
 
     private Button btnPlay;
